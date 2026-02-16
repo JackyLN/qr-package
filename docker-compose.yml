@@ -1,0 +1,14 @@
+services:
+  lixi_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lixi_app
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    ports:
+      - "3012:3000"
+    volumes:
+      - ./data:/app/data
+      - ./public/banks:/app/public/banks

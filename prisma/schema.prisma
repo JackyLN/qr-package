@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum PrizeStatus {
+  NEW
+  CLAIMED
+  PAID
+}
+
+enum ClaimStatus {
+  CLAIMED
+  PAID
+}
+
+enum DoubleOrNothingOutcome {
+  WIN
+  LOSE
+}
+
+model Prize {
+  id        String     @id @default(cuid())
+  amountVnd Int
+  status    PrizeStatus @default(NEW)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  claim     Claim?
+}
+
+model Claim {
+  id                     String                @id @default(cuid())
+  prizeId                String                @unique
+  prize                  Prize                 @relation(fields: [prizeId], references: [id], onDelete: Restrict)
+  status                 ClaimStatus           @default(CLAIMED)
+  winnerName             String?
+  winnerPhone            String?
+  bankBin                String?
+  bankAccountNo          String?
+  transferNote           String?
+  finalAmountVnd         Int?
+  doubleOrNothingPlayed  Boolean               @default(false)
+  doubleOrNothingOutcome DoubleOrNothingOutcome?
+  claimedAt              DateTime              @default(now())
+  paidAt                 DateTime?
+  paidRef                String?
+}
+
+model GameConfig {
+  key                             String   @id @default("default")
+  isGameEnabled                   Boolean  @default(true)
+  envelopeCount                   Int      @default(10)
+  prizeCount                      Int      @default(10)
+  minAmountVnd                    Int      @default(10000)
+  maxAmountVnd                    Int      @default(200000)
+  stepVnd                         Int      @default(10000)
+  enableDoubleOrNothing           Boolean  @default(false)
+  doubleOrNothingProbability      Float    @default(0.5)
+  doubleMultiplier                Int      @default(2)
+  floorOnLoseVnd                  Int      @default(10000)
+  capOnWinVnd                     Int      @default(200000)
+  allowDoubleOrNothingOncePerClaim Boolean @default(true)
+  bankLastSyncedAt                DateTime?
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+}
+
+model Bank {
+  id           String   @id @default(cuid())
+  name         String
+  shortName    String
+  code         String?
+  bin          String   @unique
+  swiftCode    String?
+  logoUrl      String?
+  localLogoPath String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model DevicePlayAllowance {
+  deviceId            String   @id
+  extraPlaysRemaining Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
