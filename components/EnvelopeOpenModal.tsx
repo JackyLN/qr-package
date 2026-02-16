@@ -16,10 +16,10 @@ type Phase = "idle" | "wiggle" | "tear" | "open" | "reveal";
 const ANIMATION_TIMING = {
   wiggle: 20,
   tear: 1050,
-  open: 2050,
-  reveal: 3050,
-  confetti: 2300,
-  done: 3800,
+  open: 2250,
+  reveal: 3400,
+  confetti: 3600,
+  done: 6300,
 } as const;
 
 export default function EnvelopeOpenModal({ open, amountVnd, onAnimationDone }: EnvelopeOpenModalProps) {

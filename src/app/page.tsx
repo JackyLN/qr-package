@@ -1,6 +1,8 @@
+import Image from "next/image";
 import Link from "next/link";
+import QRCode from "qrcode";
 
-import { PRIZE_AMOUNTS_VND } from "@/lib/constants";
+const SITE_URL = "https://lixi.xinivia.xyz";
 
 function LanternIcon() {
   return (
@@ -20,7 +22,26 @@ function LanternIcon() {
   );
 }
 
-export default function Home() {
+async function buildQrDataUrl(value: string): Promise<string> {
+  return QRCode.toDataURL(value, {
+    width: 280,
+    margin: 1,
+    color: {
+      dark: "#6f0909",
+      light: "#fff4df",
+    },
+  });
+}
+
+export default async function Home() {
+  let qrDataUrl: string | null = null;
+
+  try {
+    qrDataUrl = await buildQrDataUrl(SITE_URL);
+  } catch {
+    qrDataUrl = null;
+  }
+
   return (
     <main className="tet-pattern min-h-screen px-4 py-8 sm:px-6">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-7">
@@ -40,6 +61,32 @@ export default function Home() {
           <p className="mt-4 max-w-2xl text-[#f7dab0]">
             Nhận ngay số tiền lì xì ngẫu nhiên, gửi thông tin ngân hàng và chờ admin xác nhận chuyển tiền qua VietQR.
           </p>
+
+          <div className="mt-6 inline-flex w-full max-w-sm flex-col items-center rounded-2xl border border-[#f4c462]/45 bg-[#6d1116]/65 p-4 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#ffd98f]">Quét để mở nhanh</p>
+            {qrDataUrl ? (
+              <a href={SITE_URL} target="_blank" rel="noreferrer" aria-label="Mở trang lixi.xinivia.xyz">
+                <Image
+                  src={qrDataUrl}
+                  alt="QR mở trang lixi.xinivia.xyz"
+                  width={210}
+                  height={210}
+                  unoptimized
+                  className="mt-3 rounded-lg border border-[#f3c266]/50 bg-[#fff4df] p-2 transition hover:brightness-105"
+                />
+              </a>
+            ) : (
+              <p className="mt-3 text-sm text-[#ffd7a0]">Không tạo được QR lúc này.</p>
+            )}
+            <a
+              href={SITE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 text-sm font-semibold text-[#ffe7bd] underline decoration-[#f4c462]/70 underline-offset-4"
+            >
+              {SITE_URL}
+            </a>
+          </div>
 
           {/* <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-[#f4c462]/45 bg-[#671015]/60 p-4">

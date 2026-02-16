@@ -7,6 +7,8 @@ import { useParams } from "next/navigation";
 
 import { BANKS } from "@/lib/constants";
 
+const DOUBLE_OR_NOTHING_MIN_SPIN_MS = 1400;
+
 type ClaimResponse = {
   claimId: string;
   status: "CLAIMED" | "PAID";
@@ -231,6 +233,7 @@ export default function ResultPage() {
       return;
     }
 
+    const spinStartAt = Date.now();
     setPlayingDouble(true);
     setError(null);
     setSuccess(null);
@@ -248,6 +251,11 @@ export default function ResultPage() {
 
       if (!response.ok) {
         throw new Error(data.error ?? "Không thể chơi double-or-nothing");
+      }
+
+      const elapsedMs = Date.now() - spinStartAt;
+      if (elapsedMs < DOUBLE_OR_NOTHING_MIN_SPIN_MS) {
+        await new Promise((resolve) => setTimeout(resolve, DOUBLE_OR_NOTHING_MIN_SPIN_MS - elapsedMs));
       }
 
       const outcome = data.outcome ?? "LOSE";
@@ -307,11 +315,21 @@ export default function ResultPage() {
               {canPlayDoubleOrNothing ? (
                 <button
                   type="button"
-                  className="tet-btn mt-4 w-full px-5 py-3 disabled:opacity-60"
+                  className="tet-btn mt-4 inline-flex w-full items-center justify-center gap-2 px-5 py-3 disabled:opacity-60"
                   onClick={() => void playDoubleOrNothing()}
                   disabled={playingDouble}
                 >
-                  {playingDouble ? "Đang quay kết quả..." : "Double or Nothing"}
+                  {playingDouble ? (
+                    <>
+                      <span
+                        aria-hidden
+                        className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#6f0909]/30 border-t-[#6f0909]"
+                      />
+                      Đang quay kết quả...
+                    </>
+                  ) : (
+                    "Double or Nothing"
+                  )}
                 </button>
               ) : null}
 
@@ -382,13 +400,13 @@ export default function ResultPage() {
                             <Image
                               src={bank.logoUrl}
                               alt={bank.shortName}
-                              width={24}
-                              height={24}
+                              width={32}
+                              height={32}
                               unoptimized
-                              className="h-6 w-6 rounded bg-white object-contain"
+                              className="h-8 w-8 rounded bg-white object-contain"
                             />
                           ) : (
-                            <span className="inline-block h-6 w-6 rounded-full bg-[#f4c260]/60" />
+                            <span className="inline-block h-8 w-8 rounded-full bg-[#f4c260]/60" />
                           )}
                           <span className="leading-tight">
                             {bank.shortName} ({bank.bin})

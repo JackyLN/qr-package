@@ -1,0 +1,58 @@
+name: Deploy Lixi App to UAT (SSH)
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "Git ref (branch/tag/SHA) to deploy. Leave empty to pull main."
+        required: false
+        default: ""
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy on UAT server
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          GIT_REF: ${{ inputs.git_ref }}
+        with:
+          host: ${{ secrets.UAT_SSH_HOST }}
+          username: ${{ secrets.UAT_SSH_USER }}
+          key: ${{ secrets.UAT_SSH_KEY }}
+          port: ${{ secrets.UAT_SSH_PORT || 22 }}
+          envs: GIT_REF
+          script: |
+            set -euo pipefail
+
+            REMOTE_APP_DIR="/root/lixi"
+            ENV_FILE="${REMOTE_APP_DIR}/.env.production"
+            COMPOSE_FILE="${REMOTE_APP_DIR}/docker-compose.yml"
+            DEFAULT_BRANCH="main"
+
+            if [ ! -d "$REMOTE_APP_DIR/.git" ]; then
+              echo "Missing git repo in $REMOTE_APP_DIR"
+              exit 1
+            fi
+
+            cd "$REMOTE_APP_DIR"
+            git fetch --all --tags --prune
+
+            if [ -n "${GIT_REF:-}" ]; then
+              git checkout "$GIT_REF"
+              git pull --ff-only origin "$GIT_REF" || true
+            else
+              git checkout "$DEFAULT_BRANCH"
+              git pull --ff-only origin "$DEFAULT_BRANCH"
+            fi
+
+            if [ ! -f "$ENV_FILE" ]; then
+              echo "Missing env file: $ENV_FILE"
+              exit 1
+            fi
+
+            mkdir -p "${REMOTE_APP_DIR}/data" "${REMOTE_APP_DIR}/public/banks"
+
+            docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
+            docker compose -f "$COMPOSE_FILE" ps
+            docker logs --tail 50 lixi_app || true
