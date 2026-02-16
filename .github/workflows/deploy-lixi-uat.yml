@@ -29,6 +29,8 @@ jobs:
             ENV_FILE="${REMOTE_APP_DIR}/.env.production"
             COMPOSE_FILE="${REMOTE_APP_DIR}/docker-compose.yml"
             DEFAULT_BRANCH="main"
+            IMAGE_NAME="lixi-lixi_app:latest"
+            COMPOSE_PROJECT="lixi"
 
             if [ ! -d "$REMOTE_APP_DIR/.git" ]; then
               echo "Missing git repo in $REMOTE_APP_DIR"
@@ -53,6 +55,9 @@ jobs:
 
             mkdir -p "${REMOTE_APP_DIR}/data" "${REMOTE_APP_DIR}/public/banks"
 
-            docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
-            docker compose -f "$COMPOSE_FILE" ps
+            # Avoid docker compose build metadata-file bug on this VPS:
+            # build image directly, then start compose without rebuilding.
+            docker build -t "$IMAGE_NAME" -f "${REMOTE_APP_DIR}/Dockerfile" "${REMOTE_APP_DIR}"
+            docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" up -d --no-build --remove-orphans
+            docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" ps
             docker logs --tail 50 lixi_app || true

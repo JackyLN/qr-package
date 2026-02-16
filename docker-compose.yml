@@ -1,5 +1,6 @@
 services:
   lixi_app:
+    image: lixi-lixi_app:latest
     build:
       context: .
       dockerfile: Dockerfile
