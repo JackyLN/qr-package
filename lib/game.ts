@@ -42,7 +42,7 @@ function isRetryableError(error: unknown): boolean {
 
 export function buildDefaultTransferNote(seed: string): string {
   const suffix = seed.slice(-10).toUpperCase();
-  return normalizeTransferNote(`${DEFAULT_TRANSFER_NOTE_PREFIX}${suffix}`, "LIXI");
+  return normalizeTransferNote(`${DEFAULT_TRANSFER_NOTE_PREFIX}${suffix}`, DEFAULT_TRANSFER_NOTE_PREFIX);
 }
 
 export async function claimRandomPrize(): Promise<{ claimId: string; amountVnd: number }> {

@@ -11,7 +11,7 @@ export const PRIZE_AMOUNTS_VND: number[] = [
   500000,
 ];
 
-export const DEFAULT_TRANSFER_NOTE_PREFIX = "LIXI";
+export const DEFAULT_TRANSFER_NOTE_PREFIX = "CHUC MUNG NAM MOI - LIXI";
 export const ENVELOPE_COUNT = 16;
 
 export const GAME_CONFIG_DEFAULTS = {

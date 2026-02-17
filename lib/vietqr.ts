@@ -1,4 +1,5 @@
-import { normalizeTransferNote } from "@/lib/normalize";
+import { DEFAULT_TRANSFER_NOTE_PREFIX } from "@/lib/constants";
+import { normalizeAsciiAlnum, normalizeTransferNote } from "@/lib/normalize";
 
 type VietQrInput = {
   bankBin: string;
@@ -17,7 +18,7 @@ function isAscii(value: string): boolean {
 }
 
 function toAsciiAlnum(input: string): string {
-  return normalizeTransferNote(input, "");
+  return normalizeAsciiAlnum(input, "");
 }
 
 function encodeTlv(id: string, value: string): string {
@@ -51,7 +52,7 @@ export function buildVietQrPayload(input: VietQrInput): string {
   const bankBin = input.bankBin.replace(/\D/g, "");
   const bankAccountNo = toAsciiAlnum(input.bankAccountNo);
   const amount = Math.trunc(input.amountVnd);
-  const transferNote = normalizeTransferNote(input.transferNote, "LIXI");
+  const transferNote = normalizeTransferNote(input.transferNote, DEFAULT_TRANSFER_NOTE_PREFIX);
 
   if (!bankBin || !bankAccountNo) {
     throw new Error("bankBin and bankAccountNo are required");
