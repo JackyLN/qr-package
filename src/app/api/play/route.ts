@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { GameDisabledError, NoPrizeAvailableError, claimRandomPrize } from "@/lib/game";
+import { getOrCreateGameConfig } from "@/lib/game-config";
 import {
   applyDeviceCookie,
   applyPlayedCookie,
   consumeExtraPlay,
+  hasPlayedInSession,
   refundExtraPlay,
   resolveDeviceContext,
 } from "@/lib/play-guard";
@@ -13,8 +15,14 @@ type PlayBody = {
   envelopeIndex?: number;
 };
 
+function withPlaySessionHeader(response: NextResponse, playSessionVersion: number): NextResponse {
+  response.headers.set("x-play-session-version", String(playSessionVersion));
+  return response;
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const deviceContext = resolveDeviceContext(request);
+  const config = await getOrCreateGameConfig();
 
   let body: PlayBody = {};
 
@@ -29,12 +37,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (deviceContext.shouldSetDeviceCookie) {
       applyDeviceCookie(response, deviceContext.deviceId);
     }
-    return response;
+    return withPlaySessionHeader(response, config.playSessionVersion);
   }
 
   let consumedExceptionPlay = false;
+  const alreadyPlayedInCurrentSession = hasPlayedInSession(request, config.playSessionVersion);
 
-  if (deviceContext.alreadyPlayed) {
+  if (alreadyPlayedInCurrentSession) {
     consumedExceptionPlay = await consumeExtraPlay(deviceContext.deviceId);
     if (!consumedExceptionPlay) {
       const response = NextResponse.json(
@@ -44,7 +53,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (deviceContext.shouldSetDeviceCookie) {
         applyDeviceCookie(response, deviceContext.deviceId);
       }
-      return response;
+      return withPlaySessionHeader(response, config.playSessionVersion);
     }
   }
 
@@ -54,8 +63,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (deviceContext.shouldSetDeviceCookie) {
       applyDeviceCookie(response, deviceContext.deviceId);
     }
-    applyPlayedCookie(response);
-    return response;
+    applyPlayedCookie(response, config.playSessionVersion);
+    return withPlaySessionHeader(response, config.playSessionVersion);
   } catch (error) {
     if (consumedExceptionPlay) {
       try {
@@ -70,7 +79,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (deviceContext.shouldSetDeviceCookie) {
         applyDeviceCookie(response, deviceContext.deviceId);
       }
-      return response;
+      return withPlaySessionHeader(response, config.playSessionVersion);
     }
 
     if (error instanceof NoPrizeAvailableError) {
@@ -78,7 +87,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (deviceContext.shouldSetDeviceCookie) {
         applyDeviceCookie(response, deviceContext.deviceId);
       }
-      return response;
+      return withPlaySessionHeader(response, config.playSessionVersion);
     }
 
     console.error("POST /api/play failed", error);
@@ -86,6 +95,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (deviceContext.shouldSetDeviceCookie) {
       applyDeviceCookie(response, deviceContext.deviceId);
     }
-    return response;
+    return withPlaySessionHeader(response, config.playSessionVersion);
   }
 }

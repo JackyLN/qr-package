@@ -53,6 +53,7 @@ model Claim {
 model GameConfig {
   key                             String   @id @default("default")
   isGameEnabled                   Boolean  @default(true)
+  playSessionVersion              Int      @default(1)
   envelopeCount                   Int      @default(10)
   prizeCount                      Int      @default(10)
   minAmountVnd                    Int      @default(10000)

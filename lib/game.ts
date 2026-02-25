@@ -127,13 +127,33 @@ export async function claimRandomPrize(): Promise<{ claimId: string; amountVnd: 
   throw new Error("Unable to allocate prize after retries");
 }
 
-export async function resetGameState(): Promise<{ prizeCount: number; envelopeCount: number }> {
+export async function resetGameState(): Promise<{
+  prizeCount: number;
+  envelopeCount: number;
+  playSessionVersion: number;
+}> {
   const config = await getOrCreateGameConfig();
   const generatedPrizeAmounts = generatePrizeAmountsFromConfig(config);
+  let playSessionVersion = config.playSessionVersion;
 
   await prisma.$transaction(async (tx) => {
     await tx.claim.deleteMany();
     await tx.prize.deleteMany();
+    await tx.devicePlayAllowance.deleteMany();
+    await tx.gameConfig.upsert({
+      where: { key: "default" },
+      create: {
+        key: "default",
+      },
+      update: {},
+    });
+    const updatedConfig = await tx.gameConfig.update({
+      where: { key: "default" },
+      data: {
+        playSessionVersion: { increment: 1 },
+      },
+    });
+    playSessionVersion = updatedConfig.playSessionVersion;
 
     if (generatedPrizeAmounts.length > 0) {
       await tx.prize.createMany({
@@ -148,5 +168,6 @@ export async function resetGameState(): Promise<{ prizeCount: number; envelopeCo
   return {
     prizeCount: generatedPrizeAmounts.length,
     envelopeCount: config.envelopeCount,
+    playSessionVersion,
   };
 }

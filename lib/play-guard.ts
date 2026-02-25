@@ -11,7 +11,6 @@ const PLAYED_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 export type DeviceContext = {
   deviceId: string;
   shouldSetDeviceCookie: boolean;
-  alreadyPlayed: boolean;
 };
 
 export function resolveDeviceContext(request: NextRequest): DeviceContext {
@@ -21,8 +20,17 @@ export function resolveDeviceContext(request: NextRequest): DeviceContext {
   return {
     deviceId,
     shouldSetDeviceCookie: !existing,
-    alreadyPlayed: request.cookies.get(PLAYED_COOKIE_NAME)?.value === "1",
   };
+}
+
+function playedCookieNameForVersion(playSessionVersion: number): string {
+  return `${PLAYED_COOKIE_NAME}_v${Math.max(1, Math.trunc(playSessionVersion))}`;
+}
+
+export function hasPlayedInSession(request: NextRequest, playSessionVersion: number): boolean {
+  const cookieName = playedCookieNameForVersion(playSessionVersion);
+  const value = request.cookies.get(cookieName)?.value?.trim();
+  return value === "1";
 }
 
 export function applyDeviceCookie(response: NextResponse, deviceId: string): void {
@@ -37,15 +45,23 @@ export function applyDeviceCookie(response: NextResponse, deviceId: string): voi
   });
 }
 
-export function applyPlayedCookie(response: NextResponse): void {
+export function applyPlayedCookie(response: NextResponse, playSessionVersion: number): void {
+  const cookieName = playedCookieNameForVersion(playSessionVersion);
+
   response.cookies.set({
-    name: PLAYED_COOKIE_NAME,
+    name: cookieName,
     value: "1",
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: PLAYED_COOKIE_MAX_AGE_SECONDS,
+  });
+
+  // Cleanup legacy fixed cookie from older builds.
+  response.cookies.delete({
+    name: PLAYED_COOKIE_NAME,
+    path: "/",
   });
 }
 

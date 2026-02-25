@@ -109,6 +109,7 @@ export function normalizeGameConfig(input: GameConfigInput, current?: GameConfig
   const requestedPrizeCount = toInt(input.prizeCount, base.prizeCount);
   const prizeCount = Math.max(1, requestedPrizeCount || envelopeCount);
   const isGameEnabled = toBool(input.isGameEnabled, base.isGameEnabled);
+  const playSessionVersion = Math.max(1, toInt(input.playSessionVersion, base.playSessionVersion));
 
   const stepRequested = toInt(input.stepVnd, base.stepVnd);
   const range = alignRange(
@@ -146,6 +147,7 @@ export function normalizeGameConfig(input: GameConfigInput, current?: GameConfig
   return {
     key: base.key,
     isGameEnabled,
+    playSessionVersion,
     envelopeCount,
     prizeCount,
     minAmountVnd,
@@ -199,6 +201,7 @@ export async function updateGameConfig(input: unknown): Promise<GameConfig> {
     where: { key: GAME_CONFIG_KEY },
     data: {
       isGameEnabled: next.isGameEnabled,
+      playSessionVersion: next.playSessionVersion,
       envelopeCount: next.envelopeCount,
       prizeCount: next.prizeCount,
       minAmountVnd: next.minAmountVnd,

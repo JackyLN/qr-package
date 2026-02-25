@@ -16,6 +16,7 @@ export const ENVELOPE_COUNT = 16;
 
 export const GAME_CONFIG_DEFAULTS = {
   isGameEnabled: true,
+  playSessionVersion: 1,
   envelopeCount: 10,
   prizeCount: 10,
   minAmountVnd: 10000,

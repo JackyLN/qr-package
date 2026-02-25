@@ -43,6 +43,15 @@ export async function GET(request: Request, { params }: ClaimRouteParams): Promi
   }
 
   const transferNote = claim.transferNote ?? buildDefaultTransferNote(claim.id);
+  const bank = claim.bankBin
+    ? await prisma.bank.findUnique({
+        where: { bin: claim.bankBin },
+        select: {
+          shortName: true,
+          code: true,
+        },
+      })
+    : null;
 
   if (!claim.transferNote) {
     await prisma.claim.update({
@@ -65,5 +74,14 @@ export async function GET(request: Request, { params }: ClaimRouteParams): Promi
     width: 512,
   });
 
-  return NextResponse.json({ payload, dataUrl });
+  return NextResponse.json({
+    payload,
+    dataUrl,
+    transferNote,
+    bankBin: claim.bankBin,
+    bankAccountNo: claim.bankAccountNo,
+    bankShortName: bank?.shortName ?? null,
+    bankCode: bank?.code ?? null,
+    amountVnd: claim.finalAmountVnd ?? claim.prize.amountVnd,
+  });
 }

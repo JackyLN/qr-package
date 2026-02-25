@@ -11,6 +11,8 @@ type PendingClaim = {
   winnerName: string | null;
   winnerPhone: string | null;
   bankBin: string | null;
+  bankShortName: string | null;
+  bankCode: string | null;
   bankAccountNo: string | null;
   transferNote: string | null;
   claimedAt: string;
@@ -27,6 +29,12 @@ type QrState = {
   error?: string;
   dataUrl?: string;
   payload?: string;
+  transferNote?: string;
+  bankBin?: string;
+  bankShortName?: string;
+  bankCode?: string;
+  bankAccountNo?: string;
+  amountVnd?: number;
 };
 
 type ApiError = {
@@ -115,6 +123,8 @@ function normalizePendingClaim(raw: unknown, index: number): PendingClaim {
     winnerName: toNullableString(data.winnerName),
     winnerPhone: toNullableString(data.winnerPhone),
     bankBin: toNullableString(data.bankBin),
+    bankShortName: toNullableString(data.bankShortName),
+    bankCode: toNullableString(data.bankCode),
     bankAccountNo: toNullableString(data.bankAccountNo),
     transferNote: toNullableString(data.transferNote),
     claimedAt: toDateString(data.claimedAt),
@@ -362,8 +372,10 @@ export default function AdminPage() {
         body: JSON.stringify({}),
       });
 
-      const data = await readApiJson<{ prizeCount?: number }>(response);
-      setNotice(`Game reset complete. New prizes: ${data.prizeCount ?? 0}`);
+      const data = await readApiJson<{ prizeCount?: number; playSessionVersion?: number }>(response);
+      setNotice(
+        `Game reset complete. New prizes: ${data.prizeCount ?? 0}. Session v${data.playSessionVersion ?? "-"}`,
+      );
       await loadPendingClaims();
     } catch (resetError) {
       setError(resetError instanceof Error ? resetError.message : "Reset failed");
@@ -486,20 +498,38 @@ export default function AdminPage() {
 
   const toggleQr = async (claim: PendingClaim): Promise<void> => {
     const rowOpen = expandedRows[claim.id];
-    setExpandedRows((prev) => ({ ...prev, [claim.id]: !rowOpen }));
+    const nextOpen = !rowOpen;
+    setExpandedRows((prev) => ({ ...prev, [claim.id]: nextOpen }));
 
-    const qrState = qrByClaim[claim.id];
-    if (rowOpen || qrState?.dataUrl || qrState?.loading) {
+    if (!nextOpen) {
       return;
     }
 
-    setQrByClaim((prev) => ({ ...prev, [claim.id]: { loading: true } }));
+    const qrState = qrByClaim[claim.id];
+    if (qrState?.loading) {
+      return;
+    }
+
+    setQrByClaim((prev) => ({
+      ...prev,
+      [claim.id]: {
+        ...prev[claim.id],
+        loading: true,
+        error: undefined,
+      },
+    }));
 
     try {
       const response = await adminFetch(`/api/admin/payout-qr/${claim.id}`);
       const data = await readApiJson<Record<string, unknown>>(response);
       const dataUrl = toNullableString(data.dataUrl) ?? toNullableString(data.qrDataUrl);
       const payload = toNullableString(data.payload) ?? "";
+      const transferNote = toNullableString(data.transferNote);
+      const bankBin = toNullableString(data.bankBin);
+      const bankShortName = toNullableString(data.bankShortName);
+      const bankCode = toNullableString(data.bankCode);
+      const bankAccountNo = toNullableString(data.bankAccountNo);
+      const amountVnd = toNumber(data.amountVnd);
 
       if (!dataUrl) {
         throw new Error("QR data missing");
@@ -511,6 +541,12 @@ export default function AdminPage() {
           loading: false,
           dataUrl,
           payload,
+          transferNote: transferNote ?? undefined,
+          bankBin: bankBin ?? undefined,
+          bankShortName: bankShortName ?? undefined,
+          bankCode: bankCode ?? undefined,
+          bankAccountNo: bankAccountNo ?? undefined,
+          amountVnd,
         },
       }));
     } catch (qrError) {
@@ -867,7 +903,7 @@ export default function AdminPage() {
                   <th className="border border-gray-300 px-3 py-2">Amount (VND)</th>
                   <th className="border border-gray-300 px-3 py-2">Name</th>
                   <th className="border border-gray-300 px-3 py-2">Phone</th>
-                  <th className="border border-gray-300 px-3 py-2">Bank BIN</th>
+                  <th className="border border-gray-300 px-3 py-2">Bank</th>
                   <th className="border border-gray-300 px-3 py-2">Account</th>
                   <th className="border border-gray-300 px-3 py-2">Note</th>
                   <th className="border border-gray-300 px-3 py-2">Actions</th>
@@ -885,7 +921,10 @@ export default function AdminPage() {
                         <td className="border border-gray-300 px-3 py-2">{claim.amountVnd.toLocaleString("vi-VN")}</td>
                         <td className="border border-gray-300 px-3 py-2">{claim.winnerName ?? "-"}</td>
                         <td className="border border-gray-300 px-3 py-2">{claim.winnerPhone ?? "-"}</td>
-                        <td className="border border-gray-300 px-3 py-2">{claim.bankBin ?? "-"}</td>
+                        <td className="border border-gray-300 px-3 py-2">
+                          {claim.bankShortName ?? "-"}
+                          {claim.bankBin ? <span className="ml-1 text-xs text-gray-500">({claim.bankBin})</span> : null}
+                        </td>
                         <td className="border border-gray-300 px-3 py-2">{claim.bankAccountNo ?? "-"}</td>
                         <td className="border border-gray-300 px-3 py-2">{claim.transferNote ?? "-"}</td>
                         <td className="border border-gray-300 px-3 py-2">
@@ -928,35 +967,59 @@ export default function AdminPage() {
 
                                 <div className="space-y-2 text-sm">
                                   <p>
-                                    <span className="font-medium">Transfer note:</span> {claim.transferNote ?? "-"}
+                                    <span className="font-medium">Transfer note:</span>{" "}
+                                    {qrState.transferNote ?? claim.transferNote ?? "-"}
                                   </p>
                                   <p>
-                                    <span className="font-medium">Account number:</span> {claim.bankAccountNo ?? "-"}
+                                    <span className="font-medium">Bank / Branch:</span>{" "}
+                                    {qrState.bankShortName ?? claim.bankShortName ?? "-"}
+                                    {qrState.bankCode || claim.bankCode ? (
+                                      <span className="text-gray-600"> ({qrState.bankCode ?? claim.bankCode})</span>
+                                    ) : null}
+                                    {qrState.bankBin || claim.bankBin ? (
+                                      <span className="text-gray-600"> - BIN: {qrState.bankBin ?? claim.bankBin}</span>
+                                    ) : null}
+                                  </p>
+                                  <p>
+                                    <span className="font-medium">Account number:</span>{" "}
+                                    {qrState.bankAccountNo ?? claim.bankAccountNo ?? "-"}
                                   </p>
                                   <p>
                                     <span className="font-medium">Amount:</span>{" "}
-                                    {claim.amountVnd.toLocaleString("vi-VN")} VND
+                                    {(qrState.amountVnd ?? claim.amountVnd).toLocaleString("vi-VN")} VND
                                   </p>
 
                                   <div className="flex flex-wrap gap-2 pt-2">
                                     <button
                                       type="button"
                                       className="rounded border border-gray-300 bg-gray-100 px-2 py-1 hover:bg-gray-200"
-                                      onClick={() => void copyText(claim.transferNote ?? "", "Transfer note")}
+                                      onClick={() =>
+                                        void copyText(
+                                          qrState.transferNote ?? claim.transferNote ?? "",
+                                          "Transfer note",
+                                        )
+                                      }
                                     >
                                       Copy Note
                                     </button>
                                     <button
                                       type="button"
                                       className="rounded border border-gray-300 bg-gray-100 px-2 py-1 hover:bg-gray-200"
-                                      onClick={() => void copyText(claim.bankAccountNo ?? "", "Account")}
+                                      onClick={() =>
+                                        void copyText(
+                                          qrState.bankAccountNo ?? claim.bankAccountNo ?? "",
+                                          "Account",
+                                        )
+                                      }
                                     >
                                       Copy Account
                                     </button>
                                     <button
                                       type="button"
                                       className="rounded border border-gray-300 bg-gray-100 px-2 py-1 hover:bg-gray-200"
-                                      onClick={() => void copyText(claim.amountVnd.toString(), "Amount")}
+                                      onClick={() =>
+                                        void copyText((qrState.amountVnd ?? claim.amountVnd).toString(), "Amount")
+                                      }
                                     >
                                       Copy Amount
                                     </button>

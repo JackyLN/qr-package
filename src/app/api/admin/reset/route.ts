@@ -10,8 +10,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const { prizeCount, envelopeCount } = await resetGameState();
-    return NextResponse.json({ ok: true, prizeCount, envelopeCount });
+    const { prizeCount, envelopeCount, playSessionVersion } = await resetGameState();
+    return NextResponse.json({ ok: true, prizeCount, envelopeCount, playSessionVersion });
   } catch (error) {
     console.error("POST /api/admin/reset failed", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
