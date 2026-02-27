@@ -131,10 +131,10 @@ export function normalizeGameConfig(input: GameConfigInput, current?: GameConfig
   const doubleMultiplier = Math.max(1, toInt(input.doubleMultiplier, base.doubleMultiplier));
 
   const floorRaw = toInt(input.floorOnLoseVnd, base.floorOnLoseVnd);
-  const floorOnLoseVnd = Math.max(1000, floorRaw);
+  const floorOnLoseVnd = clamp(Math.max(1000, floorRaw), 1000, maxAmountVnd);
 
   const capRaw = toInt(input.capOnWinVnd, base.capOnWinVnd);
-  const capOnWinVnd = Math.max(minAmountVnd, capRaw);
+  const capOnWinVnd = clamp(Math.max(minAmountVnd, capRaw), minAmountVnd, maxAmountVnd);
 
   const allowDoubleOrNothingOncePerClaim = toBool(
     input.allowDoubleOrNothingOncePerClaim,

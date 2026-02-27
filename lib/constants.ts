@@ -1,3 +1,5 @@
+// Legacy static sample list kept for reference only.
+// Runtime prizes are generated from GameConfig and stored in DB on reset.
 export const PRIZE_AMOUNTS_VND: number[] = [
   10000,
   10000,

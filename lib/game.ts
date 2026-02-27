@@ -88,10 +88,13 @@ export async function claimRandomPrize(): Promise<{ claimId: string; amountVnd: 
             throw new RetryableClaimError("Lost race while updating prize status");
           }
 
+          const amountVnd = Math.min(prize.amountVnd, config.maxAmountVnd);
+
           const claim = await tx.claim.create({
             data: {
               prizeId: prize.id,
               status: ClaimStatus.CLAIMED,
+              finalAmountVnd: amountVnd,
               transferNote: buildDefaultTransferNote(prize.id),
               claimedAt: new Date(),
             },
@@ -102,7 +105,7 @@ export async function claimRandomPrize(): Promise<{ claimId: string; amountVnd: 
 
           return {
             claimId: claim.id,
-            amountVnd: prize.amountVnd,
+            amountVnd,
           };
         },
         {

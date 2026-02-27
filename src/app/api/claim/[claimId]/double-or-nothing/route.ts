@@ -45,10 +45,12 @@ export async function POST(_: Request, { params }: ClaimRouteParams): Promise<Ne
 
         const currentAmount = claim.finalAmountVnd ?? claim.prize.amountVnd;
         const didWin = Math.random() < config.doubleOrNothingProbability;
+        const hardCapOnWinVnd = Math.min(config.capOnWinVnd, config.maxAmountVnd);
+        const hardFloorOnLoseVnd = Math.min(config.floorOnLoseVnd, config.maxAmountVnd);
 
         const finalAmountVnd = didWin
-          ? Math.min(currentAmount * config.doubleMultiplier, config.capOnWinVnd)
-          : config.floorOnLoseVnd;
+          ? Math.min(currentAmount * config.doubleMultiplier, hardCapOnWinVnd)
+          : hardFloorOnLoseVnd;
 
         const outcome = didWin ? DoubleOrNothingOutcome.WIN : DoubleOrNothingOutcome.LOSE;
 

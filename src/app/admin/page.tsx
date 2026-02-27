@@ -156,6 +156,22 @@ function normalizeGameConfig(raw: unknown): GameConfig {
     return DEFAULT_CONFIG;
   }
 
+  const minAmountVnd = Math.max(1000, Math.trunc(toNumber(raw.minAmountVnd) || DEFAULT_CONFIG.minAmountVnd));
+  const maxAmountVnd = Math.max(
+    minAmountVnd,
+    Math.trunc(toNumber(raw.maxAmountVnd) || DEFAULT_CONFIG.maxAmountVnd),
+  );
+
+  const floorOnLoseVnd = Math.min(
+    maxAmountVnd,
+    Math.max(1000, Math.trunc(toNumber(raw.floorOnLoseVnd) || DEFAULT_CONFIG.floorOnLoseVnd)),
+  );
+
+  const capOnWinVnd = Math.min(
+    maxAmountVnd,
+    Math.max(minAmountVnd, Math.trunc(toNumber(raw.capOnWinVnd) || DEFAULT_CONFIG.capOnWinVnd)),
+  );
+
   return {
     isGameEnabled:
       typeof raw.isGameEnabled === "boolean"
@@ -163,8 +179,8 @@ function normalizeGameConfig(raw: unknown): GameConfig {
         : DEFAULT_CONFIG.isGameEnabled,
     envelopeCount: Math.max(1, Math.trunc(toNumber(raw.envelopeCount) || DEFAULT_CONFIG.envelopeCount)),
     prizeCount: Math.max(1, Math.trunc(toNumber(raw.prizeCount) || DEFAULT_CONFIG.prizeCount)),
-    minAmountVnd: Math.max(1000, Math.trunc(toNumber(raw.minAmountVnd) || DEFAULT_CONFIG.minAmountVnd)),
-    maxAmountVnd: Math.max(1000, Math.trunc(toNumber(raw.maxAmountVnd) || DEFAULT_CONFIG.maxAmountVnd)),
+    minAmountVnd,
+    maxAmountVnd,
     stepVnd: Math.max(1000, Math.trunc(toNumber(raw.stepVnd) || DEFAULT_CONFIG.stepVnd)),
     enableDoubleOrNothing:
       typeof raw.enableDoubleOrNothing === "boolean"
@@ -178,11 +194,8 @@ function normalizeGameConfig(raw: unknown): GameConfig {
       1,
       Math.trunc(toNumber(raw.doubleMultiplier) || DEFAULT_CONFIG.doubleMultiplier),
     ),
-    floorOnLoseVnd: Math.max(
-      1000,
-      Math.trunc(toNumber(raw.floorOnLoseVnd) || DEFAULT_CONFIG.floorOnLoseVnd),
-    ),
-    capOnWinVnd: Math.max(1000, Math.trunc(toNumber(raw.capOnWinVnd) || DEFAULT_CONFIG.capOnWinVnd)),
+    floorOnLoseVnd,
+    capOnWinVnd,
     allowDoubleOrNothingOncePerClaim:
       typeof raw.allowDoubleOrNothingOncePerClaim === "boolean"
         ? raw.allowDoubleOrNothingOncePerClaim
@@ -209,7 +222,54 @@ function getStoredPasscode(): string {
     return "";
   }
 
-  return window.localStorage.getItem(PASSCODE_KEY) ?? "";
+  try {
+    return window.localStorage.getItem(PASSCODE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function setStoredPasscode(value: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(PASSCODE_KEY, value);
+  } catch {
+    // Ignore storage failures on restricted browsers/webviews.
+  }
+}
+
+function clearStoredPasscode(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(PASSCODE_KEY);
+  } catch {
+    // Ignore storage failures on restricted browsers/webviews.
+  }
+}
+
+function fallbackCopyText(value: string): boolean {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.top = "-9999px";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  const success = document.execCommand("copy");
+  document.body.removeChild(textarea);
+  return success;
 }
 
 async function readApiJson<T>(response: Response): Promise<T> {
@@ -226,6 +286,7 @@ export default function AdminPage() {
   const [ready, setReady] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [passcodeInput, setPasscodeInput] = useState("");
+  const [activePasscode, setActivePasscode] = useState("");
   const [wrongPasscode, setWrongPasscode] = useState(false);
 
   const [claims, setClaims] = useState<PendingClaim[]>([]);
@@ -250,9 +311,10 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
 
   const handleUnauthorized = useCallback(() => {
-    window.localStorage.removeItem(PASSCODE_KEY);
+    clearStoredPasscode();
     setIsLoggedIn(false);
     setPasscodeInput("");
+    setActivePasscode("");
     setClaims([]);
     setQrByClaim({});
     setExpandedRows({});
@@ -265,7 +327,7 @@ export default function AdminPage() {
   const adminFetch = useCallback(
     async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       const headers = new Headers(init?.headers);
-      headers.set("x-admin-passcode", getStoredPasscode());
+      headers.set("x-admin-passcode", activePasscode || getStoredPasscode());
 
       if (init?.body && !headers.has("Content-Type")) {
         headers.set("Content-Type", "application/json");
@@ -284,7 +346,7 @@ export default function AdminPage() {
 
       return response;
     },
-    [handleUnauthorized],
+    [activePasscode, handleUnauthorized],
   );
 
   const loadPendingClaims = useCallback(async () => {
@@ -321,6 +383,7 @@ export default function AdminPage() {
     const storedPasscode = getStoredPasscode();
     if (storedPasscode) {
       setPasscodeInput(storedPasscode);
+      setActivePasscode(storedPasscode);
       setIsLoggedIn(true);
     }
 
@@ -343,15 +406,17 @@ export default function AdminPage() {
       return;
     }
 
-    window.localStorage.setItem(PASSCODE_KEY, normalized);
+    setStoredPasscode(normalized);
     setWrongPasscode(false);
     setError(null);
     setNotice(null);
+    setActivePasscode(normalized);
     setIsLoggedIn(true);
   };
 
   const logoutAndReload = (): void => {
-    window.localStorage.removeItem(PASSCODE_KEY);
+    clearStoredPasscode();
+    setActivePasscode("");
     window.location.reload();
   };
 
@@ -562,7 +627,11 @@ export default function AdminPage() {
 
   const copyText = async (value: string, label: string): Promise<void> => {
     try {
-      await navigator.clipboard.writeText(value);
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else if (!fallbackCopyText(value)) {
+        throw new Error("Clipboard API unavailable");
+      }
       setNotice(`${label} copied`);
     } catch {
       setError("Clipboard copy failed");
